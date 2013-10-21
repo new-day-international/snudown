@@ -28,6 +28,7 @@ struct snudown_renderopt {
 	struct html_renderopt html;
 	int nofollow;
 	const char *target;
+	const char *domain;
 };
 
 struct snudown_renderer {
@@ -59,7 +60,6 @@ MKDEXT_TABLES;
 
 static const unsigned int snudown_default_render_flags =
 HTML_SKIP_HTML |
-HTML_SKIP_IMAGES |
 HTML_SAFELINK |
 HTML_ESCAPE |
 HTML_USE_XHTML |
@@ -73,7 +73,14 @@ snudown_link_attr(struct buf *ob, const struct buf *link, void *opaque)
 	if (options->nofollow)
 		BUFPUTSL(ob, " rel=\"nofollow\"");
 	
-	if (options->target != NULL) {
+	/* If we have an option, if it is "_blank" which means to open a 
+	   new tab, then we should check to make sure the item is not
+	   on the lightnet domain before outputting the target. We don't
+	   want to open new windows for links within the lightnet.is domain. */
+	if (options->target != NULL &&
+		(strcmp(options->target, "_blank") != 0 ||
+		strstr((const char*) link->data, options->domain) == 0) ) {
+	
 		BUFPUTSL(ob, " target=\"");
 		bufputs(ob, options->target);
 		bufputc(ob, '\"');
@@ -121,6 +128,7 @@ int main(int argc, const char * argv[])
 	struct snudown_renderer		renderer;
 	int							nofollow = 0;
 	char*						target = NULL;
+	char*						domain = NULL;
 	char*						toc_id_prefix = NULL;
 	unsigned int				flags;
 	FILE *						fp;
@@ -131,6 +139,7 @@ int main(int argc, const char * argv[])
 	
 	nofollow = false;
 	target = "_blank";
+	domain = "lightnet.is";
 	toc_id_prefix = "";
 	enable_toc = false;
 	
@@ -139,9 +148,12 @@ int main(int argc, const char * argv[])
 	struct snudown_renderopt *options = &(renderer.state->options);
 	options->nofollow = nofollow;
 	options->target = target;
+	options->domain = domain;
 	
 	/* Set the input buffer */
-	ib.data = (unsigned char*) "First line:\nSecond Line:\nThird Line";
+	ib.data = (unsigned char*)	"First line:\nSecond Line:\nThird Line\n\n"
+								"[link away](http://google.com)\n[link here](http://lightnet.is/space/lightnet)\n\n"
+								"![5-Cell aka Pentachoron](http://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/Schlegel_wireframe_5-cell.png/250px-Schlegel_wireframe_5-cell.png)";
 	ib.size = strlen((const char*) ib.data);
 	
 	/* Output buffer */
