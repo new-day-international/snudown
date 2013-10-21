@@ -5,7 +5,7 @@
 #include "html.h"
 #include "autolink.h"
 
-#define SNUDOWN_VERSION "1.1.5"
+#define SNUDOWN_VERSION "1.1.6"
 
 enum snudown_renderer_mode {
 	RENDERER_USERTEXT = 0,
@@ -54,17 +54,18 @@ static const unsigned int snudown_default_md_flags =
 
 static const unsigned int snudown_default_render_flags =
 	HTML_SKIP_HTML |
-	HTML_SKIP_IMAGES |
 	HTML_SAFELINK |
 	HTML_ESCAPE |
-	HTML_USE_XHTML;
+	HTML_USE_XHTML |
+	HTML_HARD_WRAP;
 
 static const unsigned int snudown_wiki_render_flags =
 	HTML_SKIP_HTML |
 	HTML_SAFELINK |
-	HTML_ALLOW_ELEMENT_WHITELIST |
 	HTML_ESCAPE |
-	HTML_USE_XHTML;
+	HTML_USE_XHTML |
+	HTML_HARD_WRAP |
+	HTML_ALLOW_ELEMENT_WHITELIST;
 
 static void
 snudown_link_attr(struct buf *ob, const struct buf *link, void *opaque)
