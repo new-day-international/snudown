@@ -5,7 +5,7 @@
 #include "html.h"
 #include "autolink.h"
 
-#define SNUDOWN_VERSION "1.1.5"
+#define SNUDOWN_VERSION "1.1.7"
 
 enum snudown_renderer_mode {
 	RENDERER_USERTEXT = 0,
@@ -17,6 +17,7 @@ struct snudown_renderopt {
 	struct html_renderopt html;
 	int nofollow;
 	const char *target;
+	const char *domain;
 };
 
 struct snudown_renderer {
@@ -54,17 +55,18 @@ static const unsigned int snudown_default_md_flags =
 
 static const unsigned int snudown_default_render_flags =
 	HTML_SKIP_HTML |
-	HTML_SKIP_IMAGES |
 	HTML_SAFELINK |
 	HTML_ESCAPE |
-	HTML_USE_XHTML;
+	HTML_USE_XHTML |
+	HTML_HARD_WRAP;
 
 static const unsigned int snudown_wiki_render_flags =
 	HTML_SKIP_HTML |
 	HTML_SAFELINK |
-	HTML_ALLOW_ELEMENT_WHITELIST |
 	HTML_ESCAPE |
-	HTML_USE_XHTML;
+	HTML_USE_XHTML |
+	HTML_HARD_WRAP |
+	HTML_ALLOW_ELEMENT_WHITELIST;
 
 static void
 snudown_link_attr(struct buf *ob, const struct buf *link, void *opaque)
@@ -74,7 +76,14 @@ snudown_link_attr(struct buf *ob, const struct buf *link, void *opaque)
 	if (options->nofollow)
 		BUFPUTSL(ob, " rel=\"nofollow\"");
 
-	if (options->target != NULL) {
+	/* If we have an option, if it is "_blank" which means to open a 
+	   new tab, then we should check to make sure the item is not
+	   on the lightnet domain before outputting the target. We don't
+	   want to open new windows for links within the lightnet.is domain. */
+	if (options->target != NULL &&
+		(strcmp(options->target, "_blank") != 0 ||
+		strstr((const char*) link->data, options->domain) == 0) ) {
+
 		BUFPUTSL(ob, " target=\"");
 		bufputs(ob, options->target);
 		bufputc(ob, '\"');
@@ -125,7 +134,7 @@ void init_wiki_renderer(PyObject *module) {
 static PyObject *
 snudown_md(PyObject *self, PyObject *args, PyObject *kwargs)
 {
-	static char *kwlist[] = {"text", "nofollow", "target", "toc_id_prefix", "renderer", "enable_toc", NULL};
+	static char *kwlist[] = {"text", "nofollow", "target", "domain", "toc_id_prefix", "renderer", "enable_toc", NULL};
 
 	struct buf ib, *ob;
 	PyObject *py_result;
@@ -135,6 +144,7 @@ snudown_md(PyObject *self, PyObject *args, PyObject *kwargs)
 	struct snudown_renderer _snudown;
 	int nofollow = 0;
 	char* target = NULL;
+	char* domain = NULL;
 	char* toc_id_prefix = NULL;
 	unsigned int flags;
 
@@ -142,8 +152,8 @@ snudown_md(PyObject *self, PyObject *args, PyObject *kwargs)
 
 	/* Parse arguments */
 	if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s#|izzii", kwlist,
-				&ib.data, &ib.size, &nofollow,
-				&target, &toc_id_prefix, &renderer, &enable_toc)) {
+				&ib.data, &ib.size, &nofollow, &target, &domain,
+				&toc_id_prefix, &renderer, &enable_toc)) {
 		return NULL;
 	}
 
@@ -157,6 +167,7 @@ snudown_md(PyObject *self, PyObject *args, PyObject *kwargs)
 	struct snudown_renderopt *options = &(_snudown.state->options);
 	options->nofollow = nofollow;
 	options->target = target;
+	options->domain = domain;
 
 	/* Output buffer */
 	ob = bufnew(128);
