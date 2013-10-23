@@ -5,7 +5,7 @@
 #include "html.h"
 #include "autolink.h"
 
-#define SNUDOWN_VERSION "1.1.7"
+#define SNUDOWN_VERSION "1.1.8"
 
 enum snudown_renderer_mode {
 	RENDERER_USERTEXT = 0,
@@ -34,8 +34,8 @@ struct module_state {
 
 static struct snudown_renderer sundown[RENDERER_COUNT];
 
-static char* html_element_whitelist[] = {"tr", "th", "td", "table", "tbody", "thead", "tfoot", "caption", NULL};
-static char* html_attr_whitelist[] = {"colspan", "rowspan", "cellspacing", "cellpadding", "scope", NULL};
+static char* html_element_whitelist[] = {"tr", "th", "td", "table", "tbody", "thead", "tfoot", "caption", "div", NULL};
+static char* html_attr_whitelist[] = {"colspan", "rowspan", "cellspacing", "cellpadding", "scope", "class", "style", NULL};
 
 static struct module_state usertext_toc_state;
 static struct module_state wiki_toc_state;
@@ -58,13 +58,6 @@ static const unsigned int snudown_default_render_flags =
 	HTML_SAFELINK |
 	HTML_ESCAPE |
 	HTML_USE_XHTML |
-	HTML_HARD_WRAP;
-
-static const unsigned int snudown_wiki_render_flags =
-	HTML_SKIP_HTML |
-	HTML_SAFELINK |
-	HTML_ESCAPE |
-	HTML_USE_XHTML |
 	HTML_HARD_WRAP |
 	HTML_ALLOW_ELEMENT_WHITELIST;
 
@@ -76,7 +69,7 @@ snudown_link_attr(struct buf *ob, const struct buf *link, void *opaque)
 	if (options->nofollow)
 		BUFPUTSL(ob, " rel=\"nofollow\"");
 
-	/* If we have an option, if it is "_blank" which means to open a 
+	/* If we have a target, if it is "_blank" which means to open a 
 	   new tab, then we should check to make sure the item is not
 	   on the lightnet domain before outputting the target. We don't
 	   want to open new windows for links within the lightnet.is domain. */
@@ -125,8 +118,8 @@ void init_default_renderer(PyObject *module) {
 
 void init_wiki_renderer(PyObject *module) {
 	PyModule_AddIntConstant(module, "RENDERER_WIKI", RENDERER_WIKI);
-	sundown[RENDERER_WIKI].main_renderer = make_custom_renderer(&wiki_state, snudown_wiki_render_flags, snudown_default_md_flags, 0);
-	sundown[RENDERER_WIKI].toc_renderer = make_custom_renderer(&wiki_toc_state, snudown_wiki_render_flags, snudown_default_md_flags, 1);
+	sundown[RENDERER_WIKI].main_renderer = make_custom_renderer(&wiki_state, snudown_default_render_flags, snudown_default_md_flags, 0);
+	sundown[RENDERER_WIKI].toc_renderer = make_custom_renderer(&wiki_toc_state, snudown_default_render_flags, snudown_default_md_flags, 1);
 	sundown[RENDERER_WIKI].state = &wiki_state;
 	sundown[RENDERER_WIKI].toc_state = &wiki_toc_state;
 }
