@@ -5,7 +5,7 @@
 #include "html.h"
 #include "autolink.h"
 
-#define SNUDOWN_VERSION "1.1.8"
+#define SNUDOWN_VERSION "1.1.9"
 
 enum snudown_renderer_mode {
 	RENDERER_USERTEXT = 0,
@@ -144,7 +144,7 @@ snudown_md(PyObject *self, PyObject *args, PyObject *kwargs)
 	memset(&ib, 0x0, sizeof(struct buf));
 
 	/* Parse arguments */
-	if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s#|izzii", kwlist,
+	if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s#|izzzii", kwlist,
 				&ib.data, &ib.size, &nofollow, &target, &domain,
 				&toc_id_prefix, &renderer, &enable_toc)) {
 		return NULL;
