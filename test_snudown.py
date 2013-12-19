@@ -161,16 +161,20 @@ cases = {
 
     '/R/reddit.com':
         '<p>/R/reddit.com</p>\n',
+        
+    'Hey @reddit_1':
+        '<p>Hey <a href="/u/reddit_1">reddit</a></p>',
 }
 
 
 class SnudownTestCase(unittest.TestCase):
+    
     def runTest(self):
         output = snudown.markdown(self.input)
 
         for i, (a, b) in enumerate(zip(repr(self.expected_output),
                                        repr(output))):
-            if a != b:
+           if a != b:
                 io = StringIO.StringIO()
                 print >> io, "TEST FAILED:"
                 print >> io, "       input: %s" % repr(self.input)
@@ -180,14 +184,21 @@ class SnudownTestCase(unittest.TestCase):
                 self.fail(io.getvalue())
 
 
-
 def test_snudown():
     suite = unittest.TestSuite()
 
-    for input, expected_output in cases.iteritems():
+    print "test_snudown()"
+    for input, expected_output in cases.iteritems():       
         case = SnudownTestCase()
         case.input = input
         case.expected_output = expected_output
         suite.addTest(case)
 
     return suite
+
+
+if __name__ == '__main__':
+    print "Running snudown test..."
+    test_suite = test_snudown()
+    unittest.TextTestRunner(verbosity=1).run(test_suite)
+    print "Snudown test complete."

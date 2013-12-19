@@ -197,6 +197,48 @@ sd_autolink__www(
 }
 
 size_t
+sd_autolink__notify(
+	size_t *        rewind_p,
+	struct buf *    link,
+	uint8_t *       data,
+	size_t          offset,
+	size_t          size,
+	unsigned int    flags)
+{
+	size_t          link_end;
+	int             at_count = 0;
+
+	if (offset > 0)
+		return 0;
+
+	for (link_end = 0; link_end < size; ++link_end) {
+		uint8_t c = data[link_end];
+
+		if (isalnum(c))
+			continue;
+
+		if (c == '@')
+			at_count++;
+		else if (c != '-' && c != '_')
+			break;
+	}
+
+    /* Make sure we have more than just the @ and only one @. */
+	if (link_end < 2 || at_count != 1)
+		return 0;
+
+	link_end = autolink_delim(data, link_end, offset, size);
+
+	if (link_end == 0)
+		return 0;
+
+	bufput(link, data, link_end);
+	*rewind_p = 0;
+
+	return link_end;
+}
+
+size_t
 sd_autolink__email(
 	size_t *rewind_p,
 	struct buf *link,

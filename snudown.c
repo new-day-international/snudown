@@ -18,6 +18,7 @@ struct snudown_renderopt {
 	int nofollow;
 	const char *target;
 	const char *domain;
+    PyObject* username_lookup;
 };
 
 struct snudown_renderer {
@@ -127,33 +128,47 @@ void init_wiki_renderer(PyObject *module) {
 static PyObject *
 snudown_md(PyObject *self, PyObject *args, PyObject *kwargs)
 {
-	static char *kwlist[] = {"text", "nofollow", "target", "domain", "toc_id_prefix", "renderer", "enable_toc", NULL};
+	static char *kwlist[] = {"text", "nofollow", "target", "domain", "toc_id_prefix", "renderer",
+	    "enable_toc", "username_lookup", NULL};
 
-	struct buf ib, *ob;
-	PyObject *py_result;
-	const char* result_text;
-	int renderer = RENDERER_USERTEXT;
-	int enable_toc = 0;
+	struct buf              ib, *ob;
+	PyObject *              py_result;
+	const char*             result_text;
+	int                     renderer = RENDERER_USERTEXT;
+	int                     enable_toc = 0;
 	struct snudown_renderer _snudown;
-	int nofollow = 0;
-	char* target = NULL;
-	char* domain = NULL;
-	char* toc_id_prefix = NULL;
-	unsigned int flags;
+	int                     nofollow = 0;
+	char*                   target = NULL;
+	char*                   domain = NULL;
+	char*                   toc_id_prefix = NULL;
+	PyObject*               username_lookup = NULL;
+	unsigned int            flags;
 
+    /* Clear the buffer */
 	memset(&ib, 0x0, sizeof(struct buf));
 
 	/* Parse arguments */
 	if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s#|izzzii", kwlist,
 				&ib.data, &ib.size, &nofollow, &target, &domain,
-				&toc_id_prefix, &renderer, &enable_toc)) {
+				&toc_id_prefix, &renderer, &enable_toc, &username_lookup)) {
 		return NULL;
 	}
-
+	
 	if (renderer < 0 || renderer >= RENDERER_COUNT) {
 		PyErr_SetString(PyExc_ValueError, "Invalid renderer");
 		return NULL;
 	}
+
+	/* Make sure the username_lookup is callable if one was passed in. */
+	if (username_lookup) {
+	    if (!PyCallable_Check(username_lookup)) {
+            PyErr_SetString(PyExc_TypeError, "parameter:<username_lookup> must be callable");
+            return NULL;
+        }
+        
+        /* Increment the reference count */
+        Py_XINCREF(username_lookup);
+    }
 
 	_snudown = sundown[renderer];
 
@@ -161,6 +176,7 @@ snudown_md(PyObject *self, PyObject *args, PyObject *kwargs)
 	options->nofollow = nofollow;
 	options->target = target;
 	options->domain = domain;
+	options->username_lookup = username_lookup;
 
 	/* Output buffer */
 	ob = bufnew(128);
@@ -190,7 +206,10 @@ snudown_md(PyObject *self, PyObject *args, PyObject *kwargs)
 	py_result = Py_BuildValue("s#", result_text, (int)ob->size);
 
 	/* Cleanup */
+	if (username_lookup)
+        Py_XDECREF(username_lookup);
 	bufrelease(ob);
+	
 	return py_result;
 }
 

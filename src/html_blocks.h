@@ -86,6 +86,7 @@ __inline
 inline
 #endif
 #endif
+
 static unsigned int
 hash_block_tag (str, len)
      register const char *str;

@@ -70,7 +70,7 @@ static size_t char_escape(struct buf *ob, struct sd_markdown *rndr, uint8_t *dat
 static size_t char_entity(struct buf *ob, struct sd_markdown *rndr, uint8_t *data, size_t offset, size_t size);
 static size_t char_langle_tag(struct buf *ob, struct sd_markdown *rndr, uint8_t *data, size_t offset, size_t size);
 static size_t char_autolink_url(struct buf *ob, struct sd_markdown *rndr, uint8_t *data, size_t offset, size_t size);
-static size_t char_autolink_email(struct buf *ob, struct sd_markdown *rndr, uint8_t *data, size_t offset, size_t size);
+static size_t char_autolink_notify_or_email(struct buf *ob, struct sd_markdown *rndr, uint8_t *data, size_t offset, size_t size);
 static size_t char_autolink_www(struct buf *ob, struct sd_markdown *rndr, uint8_t *data, size_t offset, size_t size);
 static size_t char_autolink_subreddit_or_username(struct buf *ob, struct sd_markdown *rndr, uint8_t *data, size_t offset, size_t size);
 static size_t char_link(struct buf *ob, struct sd_markdown *rndr, uint8_t *data, size_t offset, size_t size);
@@ -86,7 +86,7 @@ enum markdown_char_t {
 	MD_CHAR_ESCAPE,
 	MD_CHAR_ENTITITY,
 	MD_CHAR_AUTOLINK_URL,
-	MD_CHAR_AUTOLINK_EMAIL,
+	MD_CHAR_AUTOLINK_NOTIFY_OR_EMAIL,
 	MD_CHAR_AUTOLINK_WWW,
 	MD_CHAR_AUTOLINK_SUBREDDIT_OR_USERNAME,
 	MD_CHAR_SUPERSCRIPT,
@@ -102,7 +102,7 @@ static char_trigger markdown_char_ptrs[] = {
 	&char_escape,
 	&char_entity,
 	&char_autolink_url,
-	&char_autolink_email,
+	&char_autolink_notify_or_email,
 	&char_autolink_www,
 	&char_autolink_subreddit_or_username,
 	&char_superscript,
@@ -817,7 +817,7 @@ char_autolink_subreddit_or_username(struct buf *ob, struct sd_markdown *rndr, ui
 }
 
 static size_t
-char_autolink_email(struct buf *ob, struct sd_markdown *rndr, uint8_t *data, size_t offset, size_t size)
+char_autolink_notify_or_email(struct buf *ob, struct sd_markdown *rndr, uint8_t *data, size_t offset, size_t size)
 {
 	struct buf *link;
 	size_t link_len, rewind;
@@ -827,12 +827,18 @@ char_autolink_email(struct buf *ob, struct sd_markdown *rndr, uint8_t *data, siz
 
 	link = rndr_newbuf(rndr, BUFFER_SPAN);
 
-	if ((link_len = sd_autolink__email(&rewind, link, data, offset, size, 0)) > 0) {
+    /* Handle the user notification case */
+	if ((link_len = sd_autolink__notify(&rewind, link, data, offset, size, 0)) > 0) {
 		ob->size -= rewind;
-		rndr->cb.autolink(ob, link, MKDA_EMAIL, rndr->opaque);
-	}
+		rndr->cb.autolink(ob, link, MKDA_NORMAL, rndr->opaque);
 
+    /* Handle the email case */
+	} else if ((link_len = sd_autolink__email(&rewind, link, data, offset, size, 0)) > 0) {
+    	ob->size -= rewind;
+    	rndr->cb.autolink(ob, link, MKDA_EMAIL, rndr->opaque);
+    }
 	rndr_popbuf(rndr, BUFFER_SPAN);
+	
 	return link_len;
 }
 
@@ -2463,7 +2469,7 @@ sd_markdown_new(
 
 	if (extensions & MKDEXT_AUTOLINK) {
 		md->active_char[':'] = MD_CHAR_AUTOLINK_URL;
-		md->active_char['@'] = MD_CHAR_AUTOLINK_EMAIL;
+		md->active_char['@'] = MD_CHAR_AUTOLINK_NOTIFY_OR_EMAIL;
 		md->active_char['w'] = MD_CHAR_AUTOLINK_WWW;
 		md->active_char['/'] = MD_CHAR_AUTOLINK_SUBREDDIT_OR_USERNAME;
 	}
