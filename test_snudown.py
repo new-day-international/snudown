@@ -163,9 +163,33 @@ cases = {
         '<p>/R/reddit.com</p>\n',
         
     'Hey @reddit_1':
-        '<p>Hey <a href="/u/reddit_1">reddit</a></p>',
+        '<p>Hey <a href="/u/reddit_1">Reddit User</a></p>\n',
+    'Here is an @ by itself':
+        '<p>Here is an @ by itself</p>\n',
+    'Here is a bogus @user_name reference':
+        '<p>Here is a bogus @user_name reference</p>\n',
 }
 
+small_cases = {
+    'Hey @reddit_1':
+        '<p>Hey <a href="/u/reddit_1">Reddit User</a></p>\n',
+    'Here is an @ by itself':
+        '<p>Here is an @ by itself</p>\n',
+    'Here is a bogus @user_name reference':
+        '<p>Here is a bogus @user_name reference</p>\n',
+}
+
+def username_exists(username):
+    if username == "reddit_1":
+        return True
+    else:
+        return False
+
+def username_to_display_name(username):
+    if username == "reddit_1":
+        return "Reddit User"
+    else:
+        return username
 
 class SnudownTestCase(unittest.TestCase):
     
@@ -186,8 +210,6 @@ class SnudownTestCase(unittest.TestCase):
 
 def test_snudown():
     suite = unittest.TestSuite()
-
-    print "test_snudown()"
     for input, expected_output in cases.iteritems():       
         case = SnudownTestCase()
         case.input = input
@@ -199,6 +221,6 @@ def test_snudown():
 
 if __name__ == '__main__':
     print "Running snudown test..."
+    snudown.set_username_callbacks(username_exists, username_to_display_name)
     test_suite = test_snudown()
     unittest.TextTestRunner(verbosity=1).run(test_suite)
-    print "Snudown test complete."

@@ -29,21 +29,21 @@
 int
 sd_autolink_issafe(const uint8_t *link, size_t link_len)
 {
-	static const size_t valid_uris_count = 14;
+	static const size_t valid_uris_count = 15;
 	static const char *valid_uris[] = {
 		"http://", "https://", "ftp://", "mailto://",
 		"/", "git://", "steam://", "irc://", "news://", "mumble://",
-		"ssh://", "ircs://", "ts3server://", "#"
+		"ssh://", "ircs://", "ts3server://", "#", "@"
 	};
 
 	size_t i;
 
 	for (i = 0; i < valid_uris_count; ++i) {
 		size_t len = strlen(valid_uris[i]);
-
+		
 		if (link_len > len &&
 			strncasecmp((char *)link, valid_uris[i], len) == 0 &&
-			(isalnum(link[len]) || link[len] == '#' || link[len] == '/' || link[len] == '?'))
+			(isalnum(link[len]) || valid_uris[i][0] == '@' || link[len] == '#' || link[len] == '/' || link[len] == '?'))
 			return 1;
 	}
 
@@ -207,10 +207,7 @@ sd_autolink__notify(
 {
 	size_t          link_end;
 	int             at_count = 0;
-
-	if (offset > 0)
-		return 0;
-
+	
 	for (link_end = 0; link_end < size; ++link_end) {
 		uint8_t c = data[link_end];
 
@@ -228,11 +225,11 @@ sd_autolink__notify(
 		return 0;
 
 	link_end = autolink_delim(data, link_end, offset, size);
-
+    
 	if (link_end == 0)
 		return 0;
 
-	bufput(link, data, link_end);
+	bufput(link, data + 1, link_end - 1);
 	*rewind_p = 0;
 
 	return link_end;

@@ -41,6 +41,8 @@ struct html_renderopt {
 
 	/* extra callbacks */
 	void (*link_attributes)(struct buf *ob, const struct buf *url, void *self);
+	int (*user_exists)(const struct buf *username, void *self);
+	void (*username_to_display_name)(struct buf *display_name, const struct buf *username, void *self);
 };
 
 typedef enum {
