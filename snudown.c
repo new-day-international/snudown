@@ -88,12 +88,11 @@ snudown_link_attr(struct buf *ob, const struct buf *link, void *opaque)
 }
 
 static int
-snudown_user_exists(const struct buf *username, void *opaque)
+snudown_username_exists(const struct buf *username, void *opaque)
 {
     struct snudown_renderopt*   options = opaque;
     PyObject*                   argument_list;
     PyObject*                   result;
-    const char*                 username_from_callback;
     int                         user_exists = false;
 
     /* Use the callback if there is one */
@@ -168,10 +167,14 @@ static struct sd_markdown* make_custom_renderer(struct module_state* state,
 	}
 
 	state->options.html.link_attributes = &snudown_link_attr;
-	state->options.html.user_exists = &snudown_user_exists;
+	state->options.html.user_exists = &snudown_username_exists;
 	state->options.html.username_to_display_name = &snudown_username_to_display_name;
 	state->options.html.html_element_whitelist = html_element_whitelist;
 	state->options.html.html_attr_whitelist = html_attr_whitelist;
+	
+	/* Clear the Python callbacks. */
+	state->options.username_exists = NULL;
+	state->options.username_to_display_name = NULL;
 
 	return sd_markdown_new(markdownflags, 16, &state->callbacks, &state->options);
 }
@@ -301,7 +304,13 @@ set_username_callbacks(PyObject *self, PyObject *args, PyObject *kwargs)
         Py_XINCREF(username_to_display_name);
     }
 
-	/* Remember the callbacks */
+    /* Decrement the python reference counts for existing callbacks */
+	if (options->username_exists)
+        Py_DECREF(options->username_exists);
+	if (options->username_to_display_name)
+        Py_DECREF(options->username_to_display_name);
+
+	/* Remember the new callbacks */
 	options->username_exists = username_exists;
 	options->username_to_display_name = username_to_display_name;
 
