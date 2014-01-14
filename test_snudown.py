@@ -161,16 +161,44 @@ cases = {
 
     '/R/reddit.com':
         '<p>/R/reddit.com</p>\n',
+        
+    'Hey @reddit_1':
+        '<p>Hey <a href="/u/reddit_1">Reddit User</a></p>\n',
+    'Here is an @ by itself':
+        '<p>Here is an @ by itself</p>\n',
+    'Here is a bogus @user_name reference':
+        '<p>Here is a bogus @user_name reference</p>\n',
 }
 
+small_cases = {
+    'Hey @reddit_1':
+        '<p>Hey <a href="/u/reddit_1">Reddit User</a></p>\n',
+    'Here is an @ by itself':
+        '<p>Here is an @ by itself</p>\n',
+    'Here is a bogus @user_name reference':
+        '<p>Here is a bogus @user_name reference</p>\n',
+}
+
+def username_exists(username):
+    if username == "reddit_1":
+        return True
+    else:
+        return False
+
+def username_to_display_name(username):
+    if username == "reddit_1":
+        return "Reddit User"
+    else:
+        return username
 
 class SnudownTestCase(unittest.TestCase):
+    
     def runTest(self):
         output = snudown.markdown(self.input)
 
         for i, (a, b) in enumerate(zip(repr(self.expected_output),
                                        repr(output))):
-            if a != b:
+           if a != b:
                 io = StringIO.StringIO()
                 print >> io, "TEST FAILED:"
                 print >> io, "       input: %s" % repr(self.input)
@@ -180,14 +208,19 @@ class SnudownTestCase(unittest.TestCase):
                 self.fail(io.getvalue())
 
 
-
 def test_snudown():
     suite = unittest.TestSuite()
-
-    for input, expected_output in cases.iteritems():
+    for input, expected_output in cases.iteritems():       
         case = SnudownTestCase()
         case.input = input
         case.expected_output = expected_output
         suite.addTest(case)
 
     return suite
+
+
+if __name__ == '__main__':
+    print "Running snudown test..."
+    snudown.set_username_callbacks(username_exists, username_to_display_name)
+    test_suite = test_snudown()
+    unittest.TextTestRunner(verbosity=1).run(test_suite)

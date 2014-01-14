@@ -19,6 +19,7 @@
 
 #include "markdown.h"
 #include "stack.h"
+#include "html.h"
 
 #include <assert.h>
 #include <string.h>
@@ -70,7 +71,7 @@ static size_t char_escape(struct buf *ob, struct sd_markdown *rndr, uint8_t *dat
 static size_t char_entity(struct buf *ob, struct sd_markdown *rndr, uint8_t *data, size_t offset, size_t size);
 static size_t char_langle_tag(struct buf *ob, struct sd_markdown *rndr, uint8_t *data, size_t offset, size_t size);
 static size_t char_autolink_url(struct buf *ob, struct sd_markdown *rndr, uint8_t *data, size_t offset, size_t size);
-static size_t char_autolink_email(struct buf *ob, struct sd_markdown *rndr, uint8_t *data, size_t offset, size_t size);
+static size_t char_autolink_notify_or_email(struct buf *ob, struct sd_markdown *rndr, uint8_t *data, size_t offset, size_t size);
 static size_t char_autolink_www(struct buf *ob, struct sd_markdown *rndr, uint8_t *data, size_t offset, size_t size);
 static size_t char_autolink_subreddit_or_username(struct buf *ob, struct sd_markdown *rndr, uint8_t *data, size_t offset, size_t size);
 static size_t char_link(struct buf *ob, struct sd_markdown *rndr, uint8_t *data, size_t offset, size_t size);
@@ -86,7 +87,7 @@ enum markdown_char_t {
 	MD_CHAR_ESCAPE,
 	MD_CHAR_ENTITITY,
 	MD_CHAR_AUTOLINK_URL,
-	MD_CHAR_AUTOLINK_EMAIL,
+	MD_CHAR_AUTOLINK_NOTIFY_OR_EMAIL,
 	MD_CHAR_AUTOLINK_WWW,
 	MD_CHAR_AUTOLINK_SUBREDDIT_OR_USERNAME,
 	MD_CHAR_SUPERSCRIPT,
@@ -102,7 +103,7 @@ static char_trigger markdown_char_ptrs[] = {
 	&char_escape,
 	&char_entity,
 	&char_autolink_url,
-	&char_autolink_email,
+	&char_autolink_notify_or_email,
 	&char_autolink_www,
 	&char_autolink_subreddit_or_username,
 	&char_superscript,
@@ -817,22 +818,54 @@ char_autolink_subreddit_or_username(struct buf *ob, struct sd_markdown *rndr, ui
 }
 
 static size_t
-char_autolink_email(struct buf *ob, struct sd_markdown *rndr, uint8_t *data, size_t offset, size_t size)
+char_autolink_notify_or_email(struct buf *ob, struct sd_markdown *rndr, uint8_t *data, size_t offset, size_t size)
 {
-	struct buf *link;
-	size_t link_len, rewind;
+    struct html_renderopt*      options = rndr->opaque;
+    struct buf*                 link;
+    struct buf*                 link_url;
+	struct buf*                 link_text;
+    size_t                      link_len;
+	size_t                      rewind;
+    struct buf*                 NO_TITLE = NULL;
 
 	if (!rndr->cb.autolink || rndr->in_link_body)
 		return 0;
 
 	link = rndr_newbuf(rndr, BUFFER_SPAN);
 
-	if ((link_len = sd_autolink__email(&rewind, link, data, offset, size, 0)) > 0) {
+    /* Handle the user notification case */
+	if (((link_len = sd_autolink__notify(&rewind, link, data, offset, size, 0)) > 0) &&
+	    options->user_exists(link, options)) {
+        
 		ob->size -= rewind;
-		rndr->cb.autolink(ob, link, MKDA_EMAIL, rndr->opaque);
-	}
+		
+		/* Build the link url by adding the "/u/" to the beginning */
+		link_url = rndr_newbuf(rndr, BUFFER_SPAN);
+        BUFPUTSL(link_url, "/u/");
+        bufput(link_url, link->data, link->size);
+        
+        /* Get the link text using the callback, if present */
+        link_text = rndr_newbuf(rndr, BUFFER_SPAN);
+    	if (options->username_to_display_name) {
+    		options->username_to_display_name(link_text, link, options);
+    	} else {
+    		bufput(link_text, link->data, link->size);
+    	}
 
+        /* Now render the link */
+        rndr->cb.link(ob, link_url, NO_TITLE, link_text, options);
+        
+        /* Cleanup the buffers */
+		rndr_popbuf(rndr, BUFFER_SPAN);
+        rndr_popbuf(rndr, BUFFER_SPAN);
+        
+    /* Handle the email case */
+	} else if ((link_len = sd_autolink__email(&rewind, link, data, offset, size, 0)) > 0) {
+    	ob->size -= rewind;
+    	rndr->cb.autolink(ob, link, MKDA_EMAIL, options);
+    }
 	rndr_popbuf(rndr, BUFFER_SPAN);
+	
 	return link_len;
 }
 
@@ -2463,7 +2496,7 @@ sd_markdown_new(
 
 	if (extensions & MKDEXT_AUTOLINK) {
 		md->active_char[':'] = MD_CHAR_AUTOLINK_URL;
-		md->active_char['@'] = MD_CHAR_AUTOLINK_EMAIL;
+		md->active_char['@'] = MD_CHAR_AUTOLINK_NOTIFY_OR_EMAIL;
 		md->active_char['w'] = MD_CHAR_AUTOLINK_WWW;
 		md->active_char['/'] = MD_CHAR_AUTOLINK_SUBREDDIT_OR_USERNAME;
 	}
